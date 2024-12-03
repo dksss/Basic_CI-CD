@@ -1,0 +1,62 @@
+stages:
+  - build
+  - style_test
+  - test
+  - deploy
+
+.send-proj-status: &send-proj-status
+  - cd ./src && sh send_notifications.sh
+
+cat-build-job:
+  stage: build
+  script:
+    - mkdir -p ./build/
+    - cd ./src/cat && make s21_cat
+    - mv s21_cat ../../build/
+  after_script:
+    - *send-proj-status
+  artifacts:
+    paths:
+      - "./build/"
+    expire_in: 30 days 
+
+grep-build-job:
+  stage: build
+  script:
+    - mkdir -p ./build/
+    - cd ./src/grep && make s21_grep
+    - mv s21_grep ../../build/
+  after_script:
+    - *send-proj-status
+  artifacts:
+    paths:
+      - "./build/"
+    expire_in: 30 days
+
+codestyle-check-job:
+  stage: style_test
+  script:
+    - cd ./src && sh check_style.sh
+  after_script:
+    - *send-proj-status
+  allow_failure: false
+
+integration-tests-job:
+  stage: test
+  needs:
+    - cat-build-job
+    - grep-build-job
+    - codestyle-check-job
+  script:
+    - cd ./src && sh run_tests.sh
+  after_script:
+    - *send-proj-status
+  allow_failure: false
+
+deploy-job:
+  stage: deploy
+  script:
+    - cd ./src && sh make_deploy.sh
+  after_script:
+    - *send-proj-status
+  when: manual
